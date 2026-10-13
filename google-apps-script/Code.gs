@@ -7,7 +7,7 @@
  *   - Rekap      : jumlah pesanan, omzet, dan porsi tiap menu per jadwal (daftar produksi).
  * Setiap pesanan juga dibuatkan Google Doc detail di folder Drive "Pesanan disumpel/<yyyy-MM-dd>".
  *
- * Cara pakai singkat (lengkapnya di README.md):
+ * Cara pakai singkat (panduan lengkap: PANDUAN-SETUP.local.md, hanya di laptop pemilik):
  *   1. Pilih fungsi `setup` lalu klik Run → izinkan akses. Catat ORDER_SECRET dari log.
  *   2. Deploy → New deployment → Web app (Execute as: Me, Who has access: Anyone).
  *   3. Simpan URL /exec sebagai GAS_WEBHOOK_URL dan ORDER_SECRET di Vercel.

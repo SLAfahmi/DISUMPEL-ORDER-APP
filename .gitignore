@@ -13,6 +13,9 @@ token.json
 *.pem
 *.key
 
+# Catatan pribadi pemilik, mis. PANDUAN-SETUP.local.md (panduan setup lengkap)
+*.local.md
+
 # Ekspor/backup pesanan: berisi data pribadi pembeli (nama, nomor WA, alamat)
 *.csv
 *.xlsx
