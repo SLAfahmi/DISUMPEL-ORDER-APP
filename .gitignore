@@ -1,5 +1,31 @@
-node_modules/
-.vercel/
+# Rahasia: URL Apps Script & ORDER_SECRET hanya boleh ada di .env.local
+# dan di Vercel Environment Variables, tidak pernah di repository.
 .env
 .env.*
 !.env.example
+
+# Kredensial Google / akun lain (mis. dari clasp atau Google Cloud)
+.clasprc.json
+credentials*.json
+client_secret*.json
+service-account*.json
+token.json
+*.pem
+*.key
+
+# Ekspor/backup pesanan: berisi data pribadi pembeli (nama, nomor WA, alamat)
+*.csv
+*.xlsx
+*.xls
+
+# Hasil install & tool
+node_modules/
+.vercel/
+*.log
+
+# File sistem & editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.claude/settings.local.json
