@@ -1,0 +1,13 @@
+{
+  "name": "disumpel-order",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web pre-order disumpel (Dimsum & Jelly Splash) di Vercel, pesanan tersimpan ke Google Drive & Google Sheets.",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>disumpel - Dimsum &amp; Jelly Splash</title>
+  <meta name="description" content="Pre-order dimsum & jelly splash disumpel. Pesan tanpa registrasi, siap ambil atau kirim.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1 class="logo">
+        <img id="store-logo" src="/images/logo.png" alt="disumpel - Dimsum &amp; Jelly Splash" width="512" height="282">
+      </h1>
+      <p id="store-status" class="status" hidden><span class="status-dot" aria-hidden="true"></span><span id="store-status-text"></span></p>
+      <p id="store-schedule" class="schedule" hidden></p>
+      <nav id="categories" class="cats" aria-label="Kategori menu"></nav>
+    </header>
+
+    <section class="menu" aria-label="Menu">
+      <div class="swipe-hint">
+        <button type="button" class="hint-btn" data-step="-1" aria-label="Menu sebelumnya">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <span>Geser kiri &amp; kanan untuk pilih menu</span>
+        <button type="button" class="hint-btn" data-step="1" aria-label="Menu berikutnya">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <div id="track" class="track">
+        <div class="product product-skeleton" aria-hidden="true"></div>
+        <div class="product product-skeleton" aria-hidden="true"></div>
+      </div>
+      <div id="dots" class="dots"></div>
+    </section>
+
+    <footer class="arch">
+      <div class="arch-head">
+        <h2 id="arch-title" class="arch-title"></h2>
+        <p id="arch-sub" class="arch-sub"></p>
+      </div>
+
+      <div class="summary">
+        <button type="button" id="summary-open" class="summary-main" aria-label="Lihat pesanan">
+          <span id="cart-count" class="count-badge">0</span>
+          <span class="summary-text">
+            <span id="cart-label" class="summary-label">Belum ada item dipilih</span>
+            <span id="cart-total" class="summary-total">Rp 0</span>
+          </span>
+        </button>
+        <button type="button" id="reset-cart" class="reset-btn">Reset</button>
+      </div>
+
+      <button type="button" id="order-btn" class="order-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 13H7L6 7Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>
+        <span id="order-btn-label">Pesan Sekarang</span>
+      </button>
+
+      <ul id="perks" class="perks"></ul>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="checkout-sheet" class="sheet" aria-labelledby="checkout-title">
+    <form id="checkout-form" class="sheet-inner" novalidate>
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <header class="sheet-head">
+        <h2 id="checkout-title">Pesananmu</h2>
+        <button type="button" class="icon-btn" data-close-dialog aria-label="Tutup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+
+      <div class="sheet-body">
+        <div id="sheet-items" class="lines"></div>
+
+        <div class="field">
+          <label class="field-label" for="f-name">Nama</label>
+          <input id="f-name" class="input" name="name" required maxlength="60" autocomplete="name" placeholder="Nama pemesan">
+        </div>
+        <div class="field">
+          <label class="field-label" for="f-phone">No. WhatsApp</label>
+          <input id="f-phone" class="input" name="phone" type="tel" inputmode="tel" required maxlength="20" autocomplete="tel" placeholder="08xxxxxxxxxx">
+        </div>
+        <fieldset class="field">
+          <legend class="field-label">Ambil / Kirim</legend>
+          <div id="type-options" class="choices"></div>
+          <p id="schedule-info" class="hint"></p>
+        </fieldset>
+        <div id="address-field" class="field">
+          <label class="field-label" for="f-address">Alamat pengantaran</label>
+          <textarea id="f-address" class="input" name="address" rows="2" maxlength="300" autocomplete="street-address" placeholder="Nama jalan, nomor rumah, patokan"></textarea>
+        </div>
+        <fieldset class="field">
+          <legend class="field-label">Pembayaran</legend>
+          <div id="payment-options" class="choices"></div>
+          <p id="payment-info" class="hint"></p>
+        </fieldset>
+        <div class="field">
+          <label class="field-label" for="f-notes">Catatan <span class="optional">(opsional)</span></label>
+          <textarea id="f-notes" class="input" name="notes" rows="2" maxlength="300" placeholder="Mis. ambil jam 4 sore"></textarea>
+        </div>
+        <input type="text" name="website" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <div class="totals">
+          <div class="row"><span>Subtotal</span><span id="sum-subtotal"></span></div>
+          <div id="sum-fee-row" class="row"><span>Ongkir</span><span id="sum-fee"></span></div>
+          <div class="row total"><span>Total</span><span id="sum-total"></span></div>
+        </div>
+      </div>
+
+      <footer class="sheet-foot">
+        <p id="form-error" class="form-error" role="alert" hidden></p>
+        <button id="submit-btn" type="submit" class="submit-btn">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="submit-label">Kirim Pesanan · <span id="submit-total"></span></span>
+        </button>
+      </footer>
+    </form>
+  </dialog>
+
+  <dialog id="success-sheet" class="sheet" aria-labelledby="success-title">
+    <div class="success">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <div class="success-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+      </div>
+      <h2 id="success-title">Pesanan diterima!</h2>
+      <p class="success-sub">Makasih! Pesananmu sudah tercatat. Kirim konfirmasi ke WhatsApp biar langsung kami proses ya.</p>
+      <dl class="success-meta">
+        <div><dt>ID Pesanan</dt><dd id="success-id"></dd></div>
+        <div><dt>Total</dt><dd id="success-total"></dd></div>
+      </dl>
+      <p id="success-payment" class="hint"></p>
+      <a id="wa-link" class="wa-btn" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+        Kirim Konfirmasi via WhatsApp
+      </a>
+      <button type="button" class="ghost-btn" data-close-dialog>Pesan lagi</button>
+    </div>
+  </dialog>
+</body>
+</html>

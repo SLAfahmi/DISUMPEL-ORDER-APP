@@ -1,0 +1,381 @@
+<!DOCTYPE html><html lang="id" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>disumpel - Dimsum &amp; Jelly Splash</title>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Fredoka & Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              orange: '#f05123',
+              darkorange: '#db3f13',
+              light: '#fff8f4',
+              accent: '#f59e0b'
+            }
+          },
+          fontFamily: {
+            bubbly: ['Fredoka', 'system-ui', 'sans-serif'],
+            sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-layout">
+    /* Hide scrollbars for slick mobile touch experience */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* Distinctive rounded curve arch matching reference */
+    .arch-bottom-container {
+      border-top-left-radius: 50% 60px;
+      border-top-right-radius: 50% 60px;
+    }
+
+    /* Smooth snap scrolling for carousel */
+    .slider-scroll {
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .slider-item {
+      scroll-snap-align: center;
+    }
+  </style>
+<style>@font-face {
+              font-family: 'Open Sans Regular';
+              font-style: normal;
+              font-weight: 400;
+              src: url('chrome-extension://gkkdmjjodidppndkbkhhknakbeflbomf/fonts/open_sans/open-sans-v18-latin-regular.woff');
+          }</style><style>@font-face {
+              font-family: 'Open Sans Bold';
+              font-style: normal;
+              font-weight: 800;
+              src: url('chrome-extension://gkkdmjjodidppndkbkhhknakbeflbomf/fonts/open_sans/OpenSans-Bold.woff');
+          }</style><style>@font-face {
+              font-family: 'Open Sans ExtraBold';
+              font-style: normal;
+              font-weight: 800;
+              src: url('chrome-extension://gkkdmjjodidppndkbkhhknakbeflbomf/fonts/open_sans/open-sans-v18-latin-800.woff');
+          }</style></head>
+<body class="bg-stone-100 flex justify-center items-start min-h-screen text-slate-800 font-sans antialiased selection:bg-orange-200 select-none">
+<!-- BEGIN: MobileContainer -->
+<!-- Constrained to iPhone 16/17 Pro proportions with full-height feel -->
+<main class="w-full max-w-[430px] min-h-screen bg-white relative shadow-2xl flex flex-col justify-between overflow-x-hidden" data-purpose="order-screen">
+<!-- BEGIN: TopSection -->
+<header class="pt-6 pb-2 px-6 flex flex-col items-center shrink-0 z-20" data-purpose="brand-header"><div class="w-full flex items-center justify-center pt-2 pb-3"><img alt="disumpel - Dimsum &amp; Jelly Splash" class="h-10 w-auto object-contain drop-shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyJCwUOAW3B6QDX6sP8MegET9HVfdKUWWVF0NryVQZKi-XBuNodJ-wKoYw2gzzfiMcH8hrthvXAveL4jhXbLZKy2Ofvi5zmFVcKnn-jm8J7hkoO1FSVTAtPo0rrgnWOWgv0dKWH9MTyJspSLLDcEr_9T2yMbU_Og7I1fstX5PUM71-rXirJKGHQqRmco03lHTqBJsKdGC2BEa9jXkAv4At2bhvppLa0GpuXpO8YUbWpe1Qqv3XelJsIcuKvEHuUcLPLA"></div>
+<!-- Status pill banner -->
+<div class="inline-flex items-center gap-2 px-3.5 py-1 bg-orange-50 border border-orange-200 rounded-full text-brand-orange text-xs font-bold mb-3 tracking-wide shadow-sm">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<span class="">OPEN PRE-ORDER</span>
+</div>
+<!-- Official Logo Container -->
+
+<!-- Tagline & Instant Notice (Direct guest order, zero login needed) -->
+
+<!-- Category Filter Pills -->
+<nav class="flex gap-2 mt-4 w-full overflow-x-auto no-scrollbar justify-start sm:justify-center px-1" data-purpose="category-pills">
+<button class="category-btn active px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-brand-orange text-white shadow-sm" onclick="filterCategory('all', this)">
+          Semua
+        </button>
+<button class="category-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-stone-100 text-stone-600 hover:bg-stone-200" onclick="filterCategory('dimsum', this)">
+          Dimsum
+        </button>
+<button class="category-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-stone-100 text-stone-600 hover:bg-stone-200" onclick="filterCategory('beverage', this)">
+          Jelly Splash
+        </button>
+<button class="category-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-stone-100 text-stone-600 hover:bg-stone-200" onclick="filterCategory('combo', this)">
+          Paket Hemat
+        </button>
+</nav>
+</header>
+<!-- END: TopSection -->
+<!-- BEGIN: MiddleSectionCarousel -->
+<!-- Interactive Horizontal Swipe Menu with peeking adjacent slides -->
+<section class="relative w-full flex-1 flex flex-col justify-center items-center py-2 z-10" data-purpose="product-slider-section">
+<!-- Instruction Indicator -->
+<div class="flex items-center gap-1.5 text-[11px] font-semibold text-stone-400 mb-1">
+<svg class="w-3.5 h-3.5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+<span class="">Geser kiri &amp; kanan untuk pilih menu</span>
+<svg class="w-3.5 h-3.5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+</div>
+<!-- Horizontal Swipe Slider Track -->
+<div class="w-full overflow-x-auto no-scrollbar slider-scroll flex gap-4 px-12 py-3" data-purpose="swipe-track" id="productTrack">
+<!-- Slide 1: Dimsum Original Ayam -->
+<div class="slider-item flex-shrink-0 w-[275px] bg-white rounded-3xl p-4 shadow-xl border border-stone-100 flex flex-col items-center relative transition-transform" data-category="dimsum">
+<div class="absolute top-3 left-3 bg-red-100 text-red-600 font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full">
+            Best Seller
+          </div>
+<!-- Steamer Dimsum Photo -->
+<div class="w-48 h-48 relative my-2 flex items-center justify-center">
+<img alt="Dimsum Kukus Klakat Bambu" class="w-44 h-44 object-cover rounded-full shadow-lg border-4 border-amber-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB792H-wiSQFs90sySAQx87BJXM1tj95Shz12kOC0ygksjPbdNIdsHyDfhV4fiVNVUvO5lEmWG5Mgil_OBRPq0LL6Mhl_srbeMXSUo7AVALhzqpHGN3dA76bt2U16-O3Hi8_GCfzPAxAZaVLhV8r_e3wNHHUA1p4m6v3c19LeTt7c579NAQ8I7y30DD7sWF-E5armOPIzCxemHXp4WWHs87A8OaDDMBQIy3Eh4Ugmrjk6zBJCOKY6I9">
+</div>
+<!-- Product Name in Bubbly Font matching 'nama produk' on mockup -->
+<h3 class="font-bubbly text-2xl text-stone-900 tracking-wide mt-1 text-center">
+            Dimsum Ayam Original
+          </h3>
+<p class="text-xs text-stone-500 text-center px-2 mt-1">
+            4 pcs siomay daging ayam padat juicy + saus chili oil gurih
+          </p>
+<div class="mt-4 w-full flex items-center justify-between pt-2 border-t border-stone-100">
+<div>
+<span class="text-[11px] text-stone-400 block font-medium">Harga</span>
+<span class="text-lg font-bold text-brand-orange">Rp 16.000</span>
+</div>
+<!-- Quick Add Button -->
+<button class="bg-brand-orange active:scale-90 transition-transform text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md shadow-orange-500/30" onclick="addToCart('Dimsum Ayam Original', 16000)">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+</button>
+</div>
+</div>
+<!-- Slide 2: Dimsum Mentai Special -->
+<div class="slider-item flex-shrink-0 w-[275px] bg-white rounded-3xl p-4 shadow-xl border border-stone-100 flex flex-col items-center relative transition-transform" data-category="dimsum">
+<div class="absolute top-3 left-3 bg-amber-100 text-amber-700 font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full">
+            Favorit
+          </div>
+<div class="w-48 h-48 relative my-2 flex items-center justify-center">
+<img alt="Dimsum Mentai Torched" class="w-44 h-44 object-cover rounded-full shadow-lg border-4 border-amber-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqjkvkkJTOntPGLN0CSwoZK7Lv0D5zpELadNnYPnlcn5pokeIGiSCpKmtDJHxT4Elo_QXqKFbXpBozeklCdlUBFNLN6tT22sCIjXakYRj2YIGwkf_6jB7FKeyHoJkPeNEjnApB6LDauthp1JlrbsUWONSNrBwf8veLuY3gHqqBzqQThsZcKTnXdlUNAfbmYoqwie-xWmBBRPdgenPy62cHciWrKQD4q3HPH0JwBPKcaa2OhIpmRxT2">
+</div>
+<h3 class="font-bubbly text-2xl text-stone-900 tracking-wide mt-1 text-center">
+            Dimsum Mentai Mozza
+          </h3>
+<p class="text-xs text-stone-500 text-center px-2 mt-1">
+            Topping creamy mayo mentai smoky torch dengan taburan tobiko
+          </p>
+<div class="mt-4 w-full flex items-center justify-between pt-2 border-t border-stone-100">
+<div>
+<span class="text-[11px] text-stone-400 block font-medium">Harga</span>
+<span class="text-lg font-bold text-brand-orange">Rp 20.000</span>
+</div>
+<button class="bg-brand-orange active:scale-90 transition-transform text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md shadow-orange-500/30" onclick="addToCart('Dimsum Mentai Mozza', 20000)">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+</button>
+</div>
+</div>
+<!-- Slide 3: Jelly Splash Mango -->
+<div class="slider-item flex-shrink-0 w-[275px] bg-white rounded-3xl p-4 shadow-xl border border-stone-100 flex flex-col items-center relative transition-transform" data-category="beverage">
+<div class="absolute top-3 left-3 bg-emerald-100 text-emerald-700 font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full">
+            Segar Dingin
+          </div>
+<div class="w-48 h-48 relative my-2 flex items-center justify-center">
+<img alt="Jelly Splash Segar" class="w-44 h-44 object-cover rounded-full shadow-lg border-4 border-amber-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCo-TsTjmpGkZ2vNk5DoDPSroUT2Mqlj-7LisJWvHvjc8LgmmTZqN99PdDsNSHaASiIQE0bE6iy759PisD04MIZWXJx4UW1lze2F2rZOTPequ8l_hIGDUrmmCkTMp0mcCBKdkx4Pw575asL5bku7FJbrDVxmQ5kBasAP_VmtU53qPqkn89eNTZ6Lt4IpNKTgI_TI_ZAA4KERTI3DBDWrtz9bMPPxW-wKKaszQT0s57ArWrE-Fj78SOB">
+</div>
+<h3 class="font-bubbly text-2xl text-stone-900 tracking-wide mt-1 text-center">
+            Jelly Splash Mango
+          </h3>
+<p class="text-xs text-stone-500 text-center px-2 mt-1">
+            Sensasi jelly kenyal berpadu sirup mangga asam manis segar
+          </p>
+<div class="mt-4 w-full flex items-center justify-between pt-2 border-t border-stone-100">
+<div>
+<span class="text-[11px] text-stone-400 block font-medium">Harga</span>
+<span class="text-lg font-bold text-brand-orange">Rp 10.000</span>
+</div>
+<button class="bg-brand-orange active:scale-90 transition-transform text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md shadow-orange-500/30" onclick="addToCart('Jelly Splash Mango', 10000)">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+</button>
+</div>
+</div>
+<!-- Slide 4: Paket Komplit Teman Emosi -->
+<div class="slider-item flex-shrink-0 w-[275px] bg-white rounded-3xl p-4 shadow-xl border border-stone-100 flex flex-col items-center relative transition-transform" data-category="combo">
+<div class="absolute top-3 left-3 bg-orange-100 text-brand-orange font-bold text-[10px] uppercase px-2.5 py-0.5 rounded-full">
+            Super Hemat
+          </div>
+<div class="w-48 h-48 relative my-2 flex items-center justify-center">
+<img alt="Paket Combo Disumpel" class="w-44 h-44 object-cover rounded-full shadow-lg border-4 border-amber-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB0o5JF85DdmX6Ars8MAW2YD6NmehuxdwHVZ8zlweTZcXqWGShQIrZIbaE_gFIiL7N4jtM-XCaUdEE9afOgF89XrShrS2hz9KYrGgTgyvDfvyoPGbU9ik15qU54QOzKcpHZoHWmbFKvbsvv2uNcYOCJF8rdFjrpNcFfqONKiwNvB5gtrQbHDk7wwZp865iBNvdJXcdUEQnca5TywySBljZfrR5Efk9Xhiq85-eSIls4122AJMWQXjL-">
+</div>
+<h3 class="font-bubbly text-2xl text-stone-900 tracking-wide mt-1 text-center">
+            Paket Teman Emosi
+          </h3>
+<p class="text-xs text-stone-500 text-center px-2 mt-1">
+            1 Porsi Dimsum Original + 1 Cup Dingin Jelly Splash
+          </p>
+<div class="mt-4 w-full flex items-center justify-between pt-2 border-t border-stone-100">
+<div>
+<span class="text-[11px] text-stone-400 block font-medium">Harga Hemat</span>
+<span class="text-lg font-bold text-brand-orange">Rp 23.000</span>
+</div>
+<button class="bg-brand-orange active:scale-90 transition-transform text-white w-10 h-10 rounded-full flex items-center justify-center shadow-md shadow-orange-500/30" onclick="addToCart('Paket Teman Emosi', 23000)">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination Indicators (Dots) -->
+<div class="flex gap-1.5 mt-2" data-purpose="slider-indicators">
+<span class="dot-indicator w-6 h-1.5 rounded-full bg-brand-orange transition-all duration-300"></span>
+<span class="dot-indicator w-1.5 h-1.5 rounded-full bg-stone-300 transition-all duration-300"></span>
+<span class="dot-indicator w-1.5 h-1.5 rounded-full bg-stone-300 transition-all duration-300"></span>
+<span class="dot-indicator w-1.5 h-1.5 rounded-full bg-stone-300 transition-all duration-300"></span>
+</div>
+</section>
+<!-- END: MiddleSectionCarousel -->
+<!-- BEGIN: BottomSectionArch -->
+<!-- Solid orange dome arch visual echoing Image 1 & 2 bottom layout -->
+<footer class="w-full bg-brand-orange arch-bottom-container pt-8 pb-7 px-6 text-white shadow-2xl relative z-30 flex flex-col justify-end" data-purpose="bottom-order-arch">
+<!-- Bubbly Stylized Heading directly mirroring "nama produk" in the reference -->
+<div class="text-center mb-4">
+<h2 class="font-bubbly text-3xl tracking-wide text-white drop-shadow-sm select-none">
+          Teman Emosi? Disumpel Aja!
+        </h2>
+<p class="text-orange-100 text-xs mt-0.5">
+          Kenyal, gurih &amp; manis bikin harimu adem seketika.
+        </p>
+</div>
+<!-- Live Order Cart Summary Card -->
+<div class="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/20 mb-3.5 flex items-center justify-between shadow-inner" data-purpose="cart-summary">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-white text-brand-orange flex items-center justify-center font-bold text-base shadow">
+<span id="cartCountBadge" class="">1</span>
+</div>
+<div>
+<p class="text-xs text-orange-100 font-medium" id="cartItemsLabel">1x Dimsum Ayam Original</p>
+<p class="text-lg font-bold text-white tracking-tight" id="cartTotalLabel">Rp 16.000</p>
+</div>
+</div>
+<button class="text-[11px] underline text-orange-200 hover:text-white px-2 py-1" onclick="clearCart()">
+          Reset
+        </button>
+</div>
+<!-- Action Checkout Buttons (WhatsApp / QRIS Direct) -->
+<div class="flex flex-col gap-2.5">
+<button class="w-full py-3.5 px-4 bg-white hover:bg-orange-50 active:scale-[0.98] text-brand-orange font-bold text-sm rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2" onclick="handleCheckout('WA')">
+<!-- WhatsApp Icon -->
+<svg class="w-5 h-5 fill-emerald-600" viewBox="0 0 24 24">
+<path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"></path>
+</svg>
+<span class="">Pesan Cepat via WhatsApp</span>
+</button>
+<!-- Quick Payment / Dine-in Pickup Switch -->
+<div class="flex items-center justify-center gap-3 text-[11px] text-orange-200 mt-1">
+<span class="">✓ Tanpa Registrasi</span>
+<span class="">•</span>
+<span class="">✓ Siap Ambil / Kirim</span>
+<span class="">•</span>
+<span class="">✓ QRIS Ready</span>
+</div>
+</div>
+</footer>
+<!-- END: BottomSectionArch -->
+</main>
+<!-- END: MobileContainer -->
+<!-- BEGIN: InteractiveHandlers -->
+<script data-purpose="cart-and-interaction-logic">
+    // State management for instant guest ordering
+    let cart = [
+      { name: 'Dimsum Ayam Original', price: 16000, qty: 1 }
+    ];
+
+    function updateCartUI() {
+      const totalQty = cart.reduce((acc, item) => acc + item.qty, 0);
+      const totalPrice = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+
+      const countBadge = document.getElementById('cartCountBadge');
+      const itemsLabel = document.getElementById('cartItemsLabel');
+      const totalLabel = document.getElementById('cartTotalLabel');
+
+      countBadge.textContent = totalQty;
+      totalLabel.textContent = `Rp ${totalPrice.toLocaleString('id-ID')}`;
+
+      if (totalQty === 0) {
+        itemsLabel.textContent = 'Belum ada item dipilih';
+      } else if (totalQty === 1) {
+        itemsLabel.textContent = `${cart[0].qty}x ${cart[0].name}`;
+      } else {
+        itemsLabel.textContent = `${totalQty} Item Pesanan Siap Disumpel`;
+      }
+    }
+
+    function addToCart(name, price) {
+      const existing = cart.find(item => item.name === name);
+      if (existing) {
+        existing.qty += 1;
+      } else {
+        cart.push({ name, price, qty: 1 });
+      }
+      updateCartUI();
+
+      // Small bounce feedback on badge
+      const badge = document.getElementById('cartCountBadge');
+      badge.classList.add('scale-125');
+      setTimeout(() => badge.classList.remove('scale-125'), 180);
+    }
+
+    function clearCart() {
+      cart = [];
+      updateCartUI();
+    }
+
+    function filterCategory(cat, btn) {
+      // Toggle category button state
+      document.querySelectorAll('.category-btn').forEach(b => {
+        b.className = 'category-btn px-4 py-1.5 rounded-full text-xs font-semibold transition-all bg-stone-100 text-stone-600 hover:bg-stone-200';
+      });
+      btn.className = 'category-btn active px-4 py-1.5 rounded-full text-xs font-bold transition-all bg-brand-orange text-white shadow-sm';
+
+      // Filter slider items
+      const slides = document.querySelectorAll('.slider-item');
+      slides.forEach(slide => {
+        if (cat === 'all' || slide.dataset.category === cat) {
+          slide.style.display = 'flex';
+        } else {
+          slide.style.display = 'none';
+        }
+      });
+    }
+
+    function handleCheckout(type) {
+      if (cart.length === 0) {
+        alert('Silakan pilih salah satu menu dimsum atau jelly terlebih dahulu!');
+        return;
+      }
+
+      const total = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
+      let orderList = cart.map(i => `- ${i.name} (${i.qty}x) : Rp ${(i.price * i.qty).toLocaleString('id-ID')}`).join('%0A');
+      
+      const message = `Halo Disumpel! Saya mau pesan tanpa ribet:%0A%0A${orderList}%0A%0ATotal: Rp ${total.toLocaleString('id-ID')}%0A%0AMohon info ketersediaan batch hari ini ya. Terima kasih!`;
+      
+      // WhatsApp Direct Ordering format
+      window.open(`https://wa.me/6281234567890?text=${message}`, '_blank');
+    }
+
+    // Carousel scroll-indicator listener
+    const track = document.getElementById('productTrack');
+    const dots = document.querySelectorAll('.dot-indicator');
+
+    track.addEventListener('scroll', () => {
+      const scrollPos = track.scrollLeft;
+      const width = 275; // Approx item width + gap
+      const activeIdx = Math.round(scrollPos / width);
+
+      dots.forEach((dot, index) => {
+        if (index === activeIdx) {
+          dot.classList.remove('w-1.5', 'bg-stone-300');
+          dot.classList.add('w-6', 'bg-brand-orange');
+        } else {
+          dot.classList.remove('w-6', 'bg-brand-orange');
+          dot.classList.add('w-1.5', 'bg-stone-300');
+        }
+      });
+    });
+
+    // Initialize UI on load
+    updateCartUI();
+  </script>
+<!-- END: InteractiveHandlers -->
+
+
+
+
+</body></html>
