@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
-import { STORE, ORDER_TYPES, PAYMENT_METHODS, MENU } from "../lib/config.js";
+import { STORE, ORDER_TYPES, PAYMENT, MENU } from "../lib/config.js";
 import { GasRejection, callGas, gasConfig } from "../lib/gas.js";
 
 const MENU_BY_ID = new Map(MENU.map((item) => [item.id, item]));
 const TYPE_BY_ID = new Map(ORDER_TYPES.map((type) => [type.id, type]));
-const PAYMENT_BY_ID = new Map(PAYMENT_METHODS.map((method) => [method.id, method]));
+
+// Bukti bayar dikirim browser sebagai data URL gambar yang sudah dikompres (biasanya < 500 KB).
+const PROOF_RE = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/;
+const MAX_PROOF_BYTES = 3 * 1024 * 1024;
 
 const rupiah = (n) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -31,6 +34,13 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error });
   }
 
+  const proof = parseProof(body.proof);
+  if (!proof) {
+    return res
+      .status(400)
+      .json({ ok: false, error: "Unggah bukti pembayaran berupa gambar (screenshot/foto, maks. 3 MB)." });
+  }
+
   const gas = gasConfig();
   if (!gas) {
     console.error("GAS_WEBHOOK_URL / ORDER_SECRET belum diatur di Environment Variables.");
@@ -43,11 +53,15 @@ export default async function handler(req, res) {
     const saved = await callGas(
       gas,
       "order",
-      { ref: orderRef(body.ref), client: clientKey(req, gas.secret), order },
+      { ref: orderRef(body.ref), client: clientKey(req, gas.secret), order, proof },
       25_000
     );
     if (!saved.orderId) throw new Error("Apps Script tidak mengembalikan ID pesanan.");
-    return res.status(200).json({ ok: true, orderId: saved.orderId, order: { ...order, schedule: saved.schedule || "" } });
+    return res.status(200).json({
+      ok: true,
+      orderId: saved.orderId,
+      order: { ...order, batch: saved.batch || "", slot: saved.slot ?? order.slot },
+    });
   } catch (err) {
     // PO ditutup, stok habis, atau terlalu banyak pesanan: tampilkan alasannya ke pembeli.
     if (err instanceof GasRejection) return res.status(409).json({ ok: false, error: err.message });
@@ -98,9 +112,6 @@ function buildOrder(body) {
     return { error: "Alamat pengantaran wajib diisi dengan lengkap." };
   }
 
-  const payment = PAYMENT_BY_ID.get(body.payment);
-  if (!payment) return { error: "Pilih metode pembayaran." };
-
   if (!Array.isArray(body.items) || body.items.length === 0) return { error: "Keranjang masih kosong." };
   if (body.items.length > 50) return { error: "Terlalu banyak jenis item dalam satu pesanan." };
 
@@ -113,14 +124,23 @@ function buildOrder(body) {
     const qty = Number(raw.qty);
     if (!Number.isInteger(qty) || qty < 1 || qty > 99) return { error: `Jumlah ${menu.name} tidak valid.` };
 
-    items.push({
+    const item = {
       id: menu.id,
       name: menu.name,
       price: menu.price,
       qty,
       note: text(raw.note, 100),
       lineTotal: menu.price * qty,
-    });
+    };
+    // Paket bundling: total porsi tiap menu isi, dipakai Apps Script untuk stok & rekap produksi.
+    if (menu.contains) {
+      item.parts = Object.entries(menu.contains).map(([id, perPack]) => ({
+        id,
+        name: MENU_BY_ID.get(id).name,
+        qty: perPack * qty,
+      }));
+    }
+    items.push(item);
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -135,9 +155,11 @@ function buildOrder(body) {
       customer: { name, phone },
       type: type.id,
       typeLabel: type.label,
+      // Jadwal pengantaran/pengambilan pilihan pembeli; Apps Script memastikan masih aktif di spreadsheet.
+      slot: text(body.slot, 200),
       address,
-      payment: payment.id,
-      paymentLabel: payment.label,
+      payment: PAYMENT.id,
+      paymentLabel: PAYMENT.label,
       notes: text(body.notes, 300),
       items,
       subtotal,
@@ -145,6 +167,23 @@ function buildOrder(body) {
       total: subtotal + deliveryFee,
     },
   };
+}
+
+// { mime, data(base64) } bila bukti berupa gambar JPG/PNG/WebP asli dengan ukuran wajar, selain itu null.
+function parseProof(value) {
+  const match = typeof value === "string" && value.match(PROOF_RE);
+  if (!match) return null;
+  const bytes = Buffer.from(match[2], "base64");
+  if (!bytes.length || bytes.length > MAX_PROOF_BYTES || !isImageBytes(bytes)) return null;
+  return { mime: match[1], data: match[2] };
+}
+
+// Cek tanda tangan file, supaya file lain yang diberi label "image/…" tidak lolos.
+function isImageBytes(bytes) {
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const png = bytes.subarray(0, 8).toString("hex") === "89504e470d0a1a0a";
+  const webp = bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP";
+  return jpeg || png || webp;
 }
 
 // ID kiriman dari browser. Kiriman ulang dengan ID yang sama tidak dicatat dua kali oleh Apps Script.

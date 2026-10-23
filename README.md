@@ -1,15 +1,19 @@
 # disumpel — Web Pre-Order
 
-Website pre-order **disumpel · Dimsum & Jelly Splash**. Pembeli memilih menu dari HP, checkout tanpa registrasi, lalu mengirim konfirmasi lewat WhatsApp. Setiap pesanan otomatis tercatat di Google Sheets dan dibuatkan detailnya di Google Drive.
+Website pre-order **disumpel · Dimsum & Jelly Splash**. Pembeli memilih menu dari HP atau laptop, checkout tanpa registrasi, membayar lewat QRIS GoPay, lalu mengunggah bukti bayar. Setiap pesanan otomatis tercatat di Google Sheets untuk diverifikasi tim, dan bukti bayarnya tersimpan di Google Drive.
+
+Menu: **Dimsum Disumpel**, **Jelly Splash Cocopandan**, dan paket bundling **Paket Teman Emosi**.
 
 ## Fitur
 
-- Menu bergeser (carousel) dengan kategori, keranjang, dan catatan per item
-- Checkout: ambil sendiri / diantar, pilihan pembayaran (QRIS, transfer, tunai)
-- Konfirmasi pesanan otomatis ke WhatsApp toko
-- Pesanan tercatat di Google Sheets beserta status yang bisa diubah dari HP
+- Tampilan responsif: satu kolom di HP; menu + keranjang menempel di samping di desktop
+- Alur pesan: pilih menu → isi data, pilih diantar / ambil sendiri (gratis ongkir) & jadwalnya → bayar via QRIS → unggah bukti
+- Paket bundling dengan harga hemat; stoknya otomatis mengikuti menu isinya
+- Pilihan jadwal pengantaran / pengambilan diatur tim langsung dari spreadsheet
+- Bukti bayar dikompres otomatis di browser sebelum dikirim
+- Pesanan tercatat di Google Sheets dengan **Status Bayar** (diverifikasi tim) dan **Status Pesanan**
 - Buka/tutup pre-order, stok, dan kuota porsi diatur dari spreadsheet tanpa deploy ulang
-- Rekap jumlah pesanan, omzet, dan porsi per menu untuk tiap jadwal produksi
+- Rekap jumlah pesanan, omzet lunas, dan porsi per menu untuk tiap jadwal produksi
 
 ## Teknologi
 

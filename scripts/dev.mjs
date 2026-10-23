@@ -129,10 +129,14 @@ async function mockAppsScript(req, res) {
     return res.end(JSON.stringify({ ok: false, error: "Unauthorized" }));
   }
 
-  const schedule = "Sabtu (simulasi)";
+  const batch = "Batch 1 (simulasi)";
   if (payload.action === "status") {
-    // Tanpa kuota: semua menu tersedia, PO selalu buka.
-    return res.end(JSON.stringify({ ok: true, open: true, closeAt: null, schedule, items: {} }));
+    // Tanpa kuota: semua menu tersedia, PO selalu buka. Dua jadwal contoh supaya pilihan jadwal terlihat.
+    const slots = [
+      { label: "Sabtu, 25 Okt · 10.00–12.00 (simulasi)", for: "Semua" },
+      { label: "Sabtu, 25 Okt · 15.00–17.00 (simulasi)", for: "Diantar" },
+    ];
+    return res.end(JSON.stringify({ ok: true, open: true, closeAt: null, batch, slots, items: {} }));
   }
 
   if (payload.ref && mockOrders.has(payload.ref)) {
@@ -146,8 +150,9 @@ async function mockAppsScript(req, res) {
   for (const item of order.items) {
     console.log(`  ${item.qty}x ${item.name}${item.note ? ` (${item.note})` : ""}  ${item.lineTotal}`);
   }
-  console.log(`  ${order.typeLabel} · ${order.paymentLabel} · total ${order.total}`);
-  const result = { ok: true, orderId, schedule };
+  console.log(`  ${order.typeLabel}${order.slot ? ` (${order.slot})` : ""} · ${order.paymentLabel} · total ${order.total}`);
+  if (payload.proof) console.log(`  bukti bayar: ${payload.proof.mime}, ${Math.round((payload.proof.data.length * 3) / 4 / 1024)} KB`);
+  const result = { ok: true, orderId, batch, slot: order.slot };
   if (payload.ref) mockOrders.set(payload.ref, result);
   res.end(JSON.stringify(result));
 }

@@ -1,4 +1,4 @@
-import { STORE, ORDER_TYPES, PAYMENT_METHODS, MENU } from "../lib/config.js";
+import { STORE, ORDER_TYPES, PAYMENT, MENU } from "../lib/config.js";
 import { callGas, gasConfig } from "../lib/gas.js";
 
 export default async function handler(req, res) {
@@ -7,8 +7,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: "Method tidak diizinkan." });
   }
 
-  // Status dari tab Pengaturan di spreadsheet: PO buka/tutup, jadwal, stok & sisa kuota.
+  // Status dari tab Pengaturan di spreadsheet: PO buka/tutup, batch, jadwal pengantaran, stok & sisa kuota.
   const live = await liveStatus();
+  const listedAvailable = (id) => MENU.find((m) => m.id === id)?.available !== false;
 
   res.setHeader("Cache-Control", live ? "public, s-maxage=30, stale-while-revalidate=300" : "no-store");
   return res.status(200).json({
@@ -16,18 +17,21 @@ export default async function handler(req, res) {
     store: {
       ...STORE,
       isOpen: STORE.isOpen !== false && live?.open !== false,
-      schedule: live?.schedule || "",
+      batch: live?.batch || "",
       closeAt: live?.closeAt || null,
+      // [{ label, for }] — `for`: "Semua" atau label tipe pesanan (lihat ORDER_TYPES).
+      slots: Array.isArray(live?.slots) ? live.slots : [],
     },
     orderTypes: ORDER_TYPES,
-    paymentMethods: PAYMENT_METHODS,
+    payment: PAYMENT,
     menu: MENU.map((item) => {
       const stock = live?.items?.[item.id];
       // null = tanpa batas kuota.
       const remaining = Number.isInteger(stock?.remaining) ? stock.remaining : null;
+      const partsAvailable = Object.keys(item.contains || {}).every(listedAvailable);
       return {
         ...item,
-        available: item.available !== false && stock?.available !== false && remaining !== 0,
+        available: item.available !== false && partsAvailable && stock?.available !== false && remaining !== 0,
         remaining,
       };
     }),
