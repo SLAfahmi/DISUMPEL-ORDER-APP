@@ -7,7 +7,8 @@
  *   - Pengaturan : buka/tutup PO, batas waktu, batch, stok & kuota tiap menu, dan daftar
  *                  jadwal pengantaran yang bisa dipilih pembeli.
  *   - Rekap      : per batch & per jadwal pengantaran: jumlah pesanan, omzet lunas, porsi tiap menu.
- * Bukti bayar & Google Doc detail tiap pesanan disimpan di folder Drive "Pesanan disumpel/<yyyy-MM-dd>".
+ * Di folder Drive "Pesanan disumpel": bukti bayar di subfolder "Bukti Pembayaran", dan Google Doc
+ * detail tiap pesanan di subfolder per tanggal "<yyyy-MM-dd>".
  *
  * Cara pakai singkat (panduan lengkap: PANDUAN-SETUP.local.md, hanya di laptop pemilik):
  *   1. Pilih fungsi `setup` lalu klik Run → izinkan akses. Catat ORDER_SECRET dari log.
@@ -17,6 +18,7 @@
 
 const TZ = 'Asia/Jakarta';
 const ROOT_FOLDER_NAME = 'Pesanan disumpel';
+const PROOF_FOLDER_NAME = 'Bukti Pembayaran'; // subfolder di dalam ROOT_FOLDER_NAME
 const SPREADSHEET_NAME = 'Rekap Pesanan disumpel';
 const SHEET_NAME = 'Pesanan';
 const SETTINGS_SHEET_NAME = 'Pengaturan';
@@ -49,6 +51,7 @@ const SLOT_FOR = ['Semua', 'Diantar', 'Ambil Sendiri'];
 const SLOT_FOR_ALL = 'Semua';
 const SLOT_ROWS = 30; // baris tabel jadwal yang disiapkan dropdown & checkbox-nya
 const MENU_SPARE_ROWS = 5; // baris kosong untuk menu, sebelum tabel jadwal
+const RECAP_HEAD_ROW = 3; // tab Rekap: baris 1 keterangan, baris 3 judul tabel
 
 // Bukti bayar yang diterima (website mengirim JPG hasil kompres, biasanya < 500 KB).
 const PROOF_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
@@ -67,6 +70,7 @@ function setup() {
 
   const folderId = props.getProperty('FOLDER_ID');
   const folder = folderId ? DriveApp.getFolderById(folderId) : DriveApp.createFolder(ROOT_FOLDER_NAME);
+  const proofFolder = childFolder_(folder, PROOF_FOLDER_NAME);
 
   const spreadsheetId = props.getProperty('SPREADSHEET_ID');
   let ss = spreadsheetId ? SpreadsheetApp.openById(spreadsheetId) : null;
@@ -86,17 +90,55 @@ function setup() {
   ss.setSpreadsheetTimeZone(TZ);
   prepareSheet_(ss);
   prepareSettings_(ss);
-  refreshFormulas_(ss);
+  refreshRecap_(ss);
+  installRecapTrigger_();
 
   const secret = props.getProperty('ORDER_SECRET') || Utilities.getUuid().replace(/-/g, '');
   props.setProperties({ FOLDER_ID: folder.getId(), SPREADSHEET_ID: ss.getId(), ORDER_SECRET: secret });
 
   Logger.log('Setup selesai.');
   Logger.log('Folder Drive : %s', folder.getUrl());
+  Logger.log('Bukti bayar  : %s', proofFolder.getUrl());
   Logger.log('Spreadsheet  : %s', ss.getUrl());
   Logger.log('ORDER_SECRET : %s', secret);
   Logger.log('Salin ORDER_SECRET di atas ke Environment Variables Vercel.');
   Logger.log('Daftar menu muncul otomatis di tab Pengaturan setelah website dibuka pertama kali.');
+}
+
+/**
+ * Mulai dari awal di folder Drive baru. Folder & spreadsheet lama TIDAK dihapus, hanya diberi nama
+ * tambahan "(lama …)", lalu setup() membuat folder "Pesanan disumpel" dan spreadsheet baru.
+ * ORDER_SECRET tetap sama (Vercel tidak perlu diubah) dan nomor urut pesanan tetap berlanjut
+ * supaya ID pesanan tidak bentrok dengan data lama.
+ */
+function setupBaru() {
+  const props = PropertiesService.getScriptProperties();
+  const suffix = ' (lama ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH.mm') + ')';
+
+  const spreadsheetId = props.getProperty('SPREADSHEET_ID');
+  if (spreadsheetId) {
+    try {
+      const old = SpreadsheetApp.openById(spreadsheetId);
+      old.rename(old.getName() + suffix);
+      Logger.log('Spreadsheet lama: "%s" %s', old.getName(), old.getUrl());
+    } catch (err) {
+      Logger.log('Spreadsheet lama tidak bisa dibuka (dilewati): %s', err);
+    }
+  }
+  const folderId = props.getProperty('FOLDER_ID');
+  if (folderId) {
+    try {
+      const old = DriveApp.getFolderById(folderId);
+      old.setName(old.getName() + suffix);
+      Logger.log('Folder lama: "%s" %s', old.getName(), old.getUrl());
+    } catch (err) {
+      Logger.log('Folder lama tidak bisa dibuka (dilewati): %s', err);
+    }
+  }
+
+  props.deleteProperty('SPREADSHEET_ID');
+  props.deleteProperty('FOLDER_ID');
+  setup();
 }
 
 /** Cek cepat apakah Web App sudah aktif: buka URL /exec di browser. */
@@ -120,6 +162,7 @@ function doPost(e) {
       throw new Error('Tabel Pesanan masih format lama. Jalankan fungsi setup() lagi di Apps Script.');
     }
     const menu = cleanMenu_(payload.menu);
+    if (menu.length) rememberBundles_(props, menu);
     if (payload.action === 'status') return json_(handleStatus_(ss, menu));
     return json_(handleOrder_(props, ss, menu, payload));
   } catch (err) {
@@ -167,8 +210,10 @@ function handleOrder_(props, ss, menu, payload) {
   if (isLimited_(cache, limits)) return reject_(tooManyMessage_());
 
   // Bukti bayar disimpan dulu di luar lock karena lambat; dihapus lagi bila pesanan batal dicatat.
-  const folder = withLock_(function () { return getDayFolder_(props, now); });
-  const proofFile = saveProof_(payload.proof, folder, now);
+  const folders = withLock_(function () {
+    return { day: getDayFolder_(props, now), proof: getProofFolder_(props) };
+  });
+  const proofFile = saveProof_(payload.proof, folders.proof, now);
 
   let slot;
   try {
@@ -187,6 +232,7 @@ function handleOrder_(props, ss, menu, payload) {
 
       const orderId = nextOrderId_(props, now);
       appendOrderRow_(ss, orderId, order, now, shop.batch, proofFile ? proofFile.getUrl() : '');
+      refreshRecap_(ss);
 
       const result = { ok: true, orderId: orderId, batch: shop.batch, slot: order.slot };
       if (refKey) cache.put(refKey, JSON.stringify(result), REF_TTL_SEC);
@@ -210,7 +256,7 @@ function handleOrder_(props, ss, menu, payload) {
   const orderId = slot.result.orderId;
   try {
     if (proofFile) proofFile.setName(orderId + ' - bukti bayar.' + PROOF_TYPES[payload.proof.mime]);
-    const doc = createDetailDoc_(orderId, order, now, folder, slot.batch, proofFile ? proofFile.getUrl() : '');
+    const doc = createDetailDoc_(orderId, order, now, folders.day, slot.batch, proofFile ? proofFile.getUrl() : '');
     withLock_(function () { setDetailLink_(ss, orderId, doc.getUrl()); });
   } catch (err) {
     console.error('Gagal melengkapi pesanan ' + orderId + ': ' + err);
@@ -310,7 +356,8 @@ function readShop_(ss, now, menu) {
   }
   if (shop.closeAt && now >= shop.closeAt) shop.open = false;
 
-  const booked = bookedQty_(ss, shop.batch);
+  // Porsi produksi per menu: pembelian satuan + isi paket.
+  const booked = productionQty_(bookedQty_(ss, shop.batch), storedBundles_());
   for (r++; r < values.length; r++) {
     const id = String(values[r][0]).trim();
     if (!id || id === SLOT_HEADERS[0]) break;
@@ -355,7 +402,7 @@ function applyBundles_(shop, menu) {
 }
 
 /**
- * Total porsi per nama menu yang sudah dipesan untuk batch ini.
+ * Jumlah yang dipesan per nama menu (termasuk paket, apa adanya) untuk batch ini.
  * Pesanan Dibatalkan atau yang pembayarannya Ditolak tidak dihitung.
  */
 function bookedQty_(ss, batch) {
@@ -377,6 +424,46 @@ function bookedQty_(ss, batch) {
     }
   }
   return totals;
+}
+
+/**
+ * Simpan isi paket per nama paket, mis. { 'Paket Teman Emosi': [{ name: 'Dimsum Disumpel', qty: 1 }, …] },
+ * supaya perhitungan produksi (termasuk perbaruiRekap tiap 5 menit) tahu isi tiap paket.
+ */
+function rememberBundles_(props, menu) {
+  const names = {};
+  menu.forEach(function (m) { names[m.id] = m.name; });
+  const bundles = {};
+  menu.forEach(function (m) {
+    if (!m.parts) return;
+    bundles[m.name] = m.parts
+      .filter(function (p) { return names[p.id]; })
+      .map(function (p) { return { name: names[p.id], qty: p.qty }; });
+  });
+  const json = JSON.stringify(bundles);
+  if (props.getProperty('BUNDLES') !== json) props.setProperty('BUNDLES', json);
+}
+
+function storedBundles_() {
+  try {
+    return JSON.parse(PropertiesService.getScriptProperties().getProperty('BUNDLES') || '{}');
+  } catch (err) {
+    return {};
+  }
+}
+
+/** Jumlah dipesan per nama menu → porsi yang harus dibuat: tiap paket ditambahkan ke menu isinya. */
+function productionQty_(qtyByName, bundles) {
+  const made = {};
+  Object.keys(qtyByName).forEach(function (name) {
+    const parts = bundles[name];
+    if (!parts) {
+      made[name] = (made[name] || 0) + qtyByName[name];
+      return;
+    }
+    parts.forEach(function (p) { made[p.name] = (made[p.name] || 0) + qtyByName[name] * p.qty; });
+  });
+  return made;
 }
 
 /** Daftar menu {id, name, parts?} dari website (lib/config.js). `parts` hanya ada pada paket bundling. */
@@ -404,7 +491,7 @@ function menuNeedsSync_(ss, menu) {
   if (!header.length || !rows.headerRow || !rows.slotHeaderRow) return true;
   return menu.some(function (m) {
     const row = rows.byId[m.id];
-    return !row || row.name !== m.name || (!m.parts && header.indexOf(m.name, HEADERS.length) === -1);
+    return !row || row.name !== m.name || header.indexOf(m.name, HEADERS.length) === -1;
   });
 }
 
@@ -413,10 +500,9 @@ function syncMenu_(ss, menu) {
   const orders = prepareSheet_(ss);
   const settings = prepareSettings_(ss);
 
-  // Kolom jumlah porsi per menu di tab Pesanan. Paket tidak punya kolom: porsinya masuk ke menu isi.
+  // Kolom jumlah per menu di tab Pesanan (termasuk paket), berisi jumlah yang dipesan apa adanya.
   const header = headerRow_(orders);
   const newNames = menu
-    .filter(function (m) { return !m.parts; })
     .map(function (m) { return m.name; })
     .filter(function (name, i, all) { return header.indexOf(name, HEADERS.length) === -1 && all.indexOf(name) === i; });
   if (newNames.length) {
@@ -442,7 +528,7 @@ function syncMenu_(ss, menu) {
     rows.byId[m.id] = { row: row, name: m.name };
   });
 
-  refreshFormulas_(ss);
+  refreshRecap_(ss);
 }
 
 /**
@@ -502,7 +588,7 @@ function prepareSettings_(ss) {
       .setValues([MENU_HEADERS]).setFontWeight('bold').setBackground(HEADER_BG);
     sheet.getRange(row, 3).setNote('Hapus centang bila menu sedang habis / tidak dijual.');
     sheet.getRange(row, 4).setNote('Maksimal porsi untuk satu batch. Kosongkan bila tanpa batas.');
-    sheet.getRange(row, 5, 1, 2).setNote('Dihitung otomatis dari tab Pesanan, termasuk porsi dari paket (Dibatalkan & bayar Ditolak tidak dihitung). Jangan diisi.');
+    sheet.getRange(row, 5, 1, 2).setNote('Dihitung otomatis dari tab Pesanan (Dibatalkan & bayar Ditolak tidak dihitung), diperbarui setiap ada pesanan & tiap 5 menit. Menu satuan: porsi yang harus dibuat, termasuk isi paket. Paket: jumlah paket dipesan & sisa paket menurut sisa menu isinya. Jangan diisi.');
   }
 
   if (!menuRows_(sheet).slotHeaderRow) {
@@ -526,73 +612,143 @@ function prepareSettings_(ss) {
   return sheet;
 }
 
-/* ---------- Rumus Terpesan/Sisa & tab Rekap ---------- */
+/* ---------- Angka Terpesan/Sisa & tab Rekap ---------- */
+// Ditulis sebagai angka biasa (bukan rumus) supaya tidak bergantung pada bahasa/versi Google Sheets.
+// Diperbarui saat setup, setiap ada pesanan, dan otomatis tiap 5 menit (pemicu waktu dibuat oleh setup).
 
-/** Tulis ulang rumus Terpesan/Sisa di tab Pengaturan dan seluruh tab Rekap sesuai kolom menu terkini. */
-function refreshFormulas_(ss) {
-  const header = headerRow_(ss.getSheetByName(SHEET_NAME));
+/** Dipanggil pemicu waktu tiap 5 menit. Bisa juga dijalankan manual (Run) untuk memperbarui Rekap sekarang. */
+function perbaruiRekap() {
+  const ss = SpreadsheetApp.openById(requireProp_(PropertiesService.getScriptProperties(), 'SPREADSHEET_ID'));
+  if (!isCurrentLayout_(ss)) return;
+  withLock_(function () { refreshRecap_(ss); });
+}
+
+function installRecapTrigger_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'perbaruiRekap') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('perbaruiRekap').timeBased().everyMinutes(5).create();
+}
+
+/** Hitung ulang kolom Terpesan/Sisa di tab Pengaturan dan seluruh tab Rekap dari isi tab Pesanan. */
+function refreshRecap_(ss) {
+  const orders = ss.getSheetByName(SHEET_NAME);
   const settings = ss.getSheetByName(SETTINGS_SHEET_NAME);
+  const header = headerRow_(orders);
 
-  const column = function (col) {
-    const letter = colLetter_(col);
-    return SHEET_NAME + '!$' + letter + '$2:$' + letter;
-  };
-  // 1 untuk pesanan dengan nilai kolom `col` = value yang tidak Dibatalkan dan bayarnya tidak Ditolak.
-  const counted = function (col, value) {
-    return '(' + column(col) + '=' + value + ')' +
-      '*(' + column(COL.STATUS) + '<>"' + CANCELLED + '")' +
-      '*(' + column(COL.PAY) + '<>"' + PAY_REJECTED + '")';
-  };
+  // Kolom porsi per menu. Bila ada judul kembar, hanya kolom pertama yang dipakai (sama seperti saat mencatat).
+  const menuCols = [];
+  const menuNames = [];
+  for (let c = HEADERS.length; c < header.length; c++) {
+    if (header[c] && menuNames.indexOf(header[c]) === -1) {
+      menuNames.push(header[c]);
+      menuCols.push(c);
+    }
+  }
 
-  const batchRow = labelRow_(settings, LABEL_BATCH);
-  const batchCell = batchRow ? '$B$' + batchRow : '""';
-  const rows = menuRows_(settings);
-  Object.keys(rows.byId).forEach(function (id) {
-    const r = rows.byId[id].row;
-    const col = header.indexOf(rows.byId[id].name, HEADERS.length) + 1;
-    settings.getRange(r, 5, 1, 2).setFormulas([col
-      ? ['=SUMPRODUCT(' + counted(COL.BATCH, batchCell) + ',' + column(col) + ')', '=IF($D' + r + '="","",MAX($D' + r + '-$E' + r + ',0))']
-      // Paket bundling tidak punya kolom porsi sendiri.
-      : ['="ikut isi paket"', '=""']]);
+  // Kelompokkan pesanan per batch & per jadwal. Dibatalkan / bayar Ditolak tidak dihitung.
+  const groups = { batch: { keys: [], byKey: {} }, slot: { keys: [], byKey: {} } };
+  const bucket = function (group, key) {
+    if (!group.byKey[key]) {
+      group.byKey[key] = { count: 0, pending: 0, paid: 0, qty: menuNames.map(function () { return 0; }) };
+      group.keys.push(key);
+    }
+    return group.byKey[key];
+  };
+  const lastRow = orders.getLastRow();
+  const data = lastRow > 1 && header.length ? orders.getRange(2, 1, lastRow - 1, header.length).getValues() : [];
+  data.forEach(function (row) {
+    if (!String(row[COL.ID - 1]).trim() || row[COL.STATUS - 1] === CANCELLED || row[COL.PAY - 1] === PAY_REJECTED) return;
+    const targets = [];
+    const batch = String(row[COL.BATCH - 1]).trim();
+    const slot = String(row[COL.SLOT - 1]).trim();
+    if (batch) targets.push(bucket(groups.batch, batch));
+    if (slot) targets.push(bucket(groups.slot, slot));
+    targets.forEach(function (t) {
+      t.count++;
+      if (row[COL.PAY - 1] === PAY_STATUSES[0]) t.pending++;
+      if (row[COL.PAY - 1] === PAY_STATUSES[1]) t.paid += Number(row[COL.TOTAL - 1]) || 0;
+      menuCols.forEach(function (c, i) { t.qty[i] += Number(row[c]) || 0; });
+    });
   });
 
-  const menuCols = [];
-  for (let c = HEADERS.length; c < header.length; c++) {
-    if (header[c]) menuCols.push(c + 1);
-  }
-  const menuNames = menuCols.map(function (c) { return header[c - 1]; });
-  // Rumus untuk satu tabel ringkasan: baris = nilai unik kolom `keyCol`, mulai di kolom `startCol`.
-  const summary = function (keyCol, startCol, extra) {
-    const keys = '$' + colLetter_(startCol) + '$2:$' + colLetter_(startCol);
-    const perKey = function (expr) { return '=MAP(' + keys + ',LAMBDA(kunci,IF(kunci="","",' + expr + ')))'; };
-    return [
-      '=IFERROR(UNIQUE(FILTER(' + column(keyCol) + ',' + column(keyCol) + '<>"",' +
-        column(COL.STATUS) + '<>"' + CANCELLED + '",' + column(COL.PAY) + '<>"' + PAY_REJECTED + '")),"")',
-      perKey('SUMPRODUCT(' + counted(keyCol, 'kunci') + '*(' + column(COL.ID) + '<>""))'),
-    ].concat(extra.map(function (expr) { return perKey(expr(counted(keyCol, 'kunci'))); }))
-      .concat(menuCols.map(function (c) { return perKey('SUMPRODUCT(' + counted(keyCol, 'kunci') + ',' + column(c) + ')'); }));
+  // Porsi produksi: jumlah dipesan + isi paket, untuk menu satuan (bukan paket).
+  const bundles = storedBundles_();
+  const baseNames = menuNames.filter(function (n) { return !bundles[n]; });
+  const hasBundle = menuNames.some(function (n) { return bundles[n]; });
+  const orderedByName = function (g) {
+    const qty = {};
+    if (g) menuNames.forEach(function (n, i) { qty[n] = g.qty[i]; });
+    return qty;
+  };
+  const production = function (g) {
+    const made = productionQty_(orderedByName(g), bundles);
+    return baseNames.map(function (n) { return made[n] || 0; });
   };
 
-  // Tabel 1: per batch. Tabel 2 (di kanannya): per jadwal pengantaran.
-  const batchHeads = ['Batch', 'Jumlah Pesanan', 'Belum Diverifikasi', 'Omzet Lunas'].concat(menuNames);
-  const batchFormulas = summary(COL.BATCH, 1, [
-    function (c) { return 'SUMPRODUCT(' + c + '*(' + column(COL.PAY) + '="' + PAY_STATUSES[0] + '"))'; },
-    function (c) { return 'SUMPRODUCT(' + c + '*(' + column(COL.PAY) + '="' + PAY_STATUSES[1] + '"),' + column(COL.TOTAL) + ')'; },
-  ]);
+  // Tab Pengaturan: Terpesan & Sisa untuk batch yang sedang aktif.
+  const batchRow = labelRow_(settings, LABEL_BATCH);
+  const activeBatch = batchRow ? settings.getRange(batchRow, 2).getDisplayValues()[0][0].trim() : '';
+  const ordered = orderedByName(groups.batch.byKey[activeBatch]);
+  const made = productionQty_(ordered, bundles);
+  const menuList = Object.keys(menuRows_(settings).byId).map(function (id) { return menuRows_(settings).byId[id]; });
+  const leftByName = {};
+  // Menu satuan dulu: Terpesan = porsi yang harus dibuat (termasuk isi paket), Sisa = kuota - Terpesan.
+  menuList.filter(function (m) { return !bundles[m.name]; }).forEach(function (m) {
+    const booked = made[m.name] || 0;
+    const quota = settings.getRange(m.row, 4).getValue();
+    const left = quota === '' || !isFinite(Number(quota)) ? '' : Math.max(Math.floor(Number(quota)) - booked, 0);
+    leftByName[m.name] = left;
+    settings.getRange(m.row, 5, 1, 2).setValues([[booked, left]]);
+  });
+  // Paket: Terpesan = jumlah paket dipesan, Sisa = paket yang masih bisa dibuat dari sisa menu isinya.
+  menuList.filter(function (m) { return bundles[m.name]; }).forEach(function (m) {
+    let left = '';
+    bundles[m.name].forEach(function (p) {
+      const partLeft = leftByName[p.name];
+      if (partLeft === '' || partLeft === undefined) return;
+      const packs = Math.floor(partLeft / p.qty);
+      left = left === '' ? packs : Math.min(left, packs);
+    });
+    settings.getRange(m.row, 5, 1, 2).setValues([[ordered[m.name] || 0, left]]);
+  });
+
+  // Tab Rekap: tabel per batch (kiri) dan per jadwal pengantaran (kanan).
+  // Kolom menu = jumlah yang dipesan; kolom "Produksi …" = porsi yang harus dibuat (termasuk isi paket).
+  const asText = function (s) { return "'" + s; }; // teks apa adanya, mis. "18/10" tidak jadi tanggal
+  const productionHeads = hasBundle ? baseNames.map(function (n) { return 'Produksi ' + n; }) : [];
+  const productionCells = function (g) { return hasBundle ? production(g) : []; };
+  const batchHeads = ['Batch', 'Jumlah Pesanan', 'Belum Diverifikasi', 'Omzet Lunas'].concat(menuNames, productionHeads);
+  const batchRows = groups.batch.keys.map(function (k) {
+    const g = groups.batch.byKey[k];
+    return [asText(k), g.count, g.pending, g.paid].concat(g.qty, productionCells(g));
+  });
   const slotStart = batchHeads.length + 2;
-  const slotHeads = ['Jadwal Pengantaran', 'Jumlah Pesanan'].concat(menuNames);
-  const slotFormulas = summary(COL.SLOT, slotStart, []);
+  const slotHeads = ['Jadwal Pengantaran', 'Jumlah Pesanan'].concat(menuNames, productionHeads);
+  const slotRows = groups.slot.keys.map(function (k) {
+    const g = groups.slot.byKey[k];
+    return [asText(k), g.count].concat(g.qty, productionCells(g));
+  });
 
   const recap = ss.getSheetByName(RECAP_SHEET_NAME) || ss.insertSheet(RECAP_SHEET_NAME);
   recap.clear();
   ensureColumns_(recap, slotStart + slotHeads.length - 1);
-  recap.getRange(1, 1, 1, batchHeads.length).setValues([batchHeads]).setFontWeight('bold').setBackground(HEADER_BG);
-  recap.getRange(1, slotStart, 1, slotHeads.length).setValues([slotHeads]).setFontWeight('bold').setBackground(HEADER_BG);
-  recap.getRange(1, 1).setNote('Dihitung otomatis dari tab Pesanan. Porsi paket sudah dihitung ke menu isinya. Pesanan Dibatalkan & bayar Ditolak tidak dihitung. Jangan diubah manual.');
-  recap.getRange(2, 1, 1, batchFormulas.length).setFormulas([batchFormulas]);
-  recap.getRange(2, slotStart, 1, slotFormulas.length).setFormulas([slotFormulas]);
-  recap.getRange(2, 4, recap.getMaxRows() - 1, 1).setNumberFormat('"Rp"#,##0');
-  recap.setFrozenRows(1);
+  ensureRows_(recap, RECAP_HEAD_ROW + Math.max(batchRows.length, slotRows.length) + 1);
+  recap.getRange(1, 1)
+    .setValue('Rekap otomatis · diperbarui ' + formatTime_(new Date()) + ' (setiap ada pesanan & tiap 5 menit). ' +
+      'Pesanan Dibatalkan & bayar Ditolak tidak dihitung. Kolom menu = jumlah yang dipesan; ' +
+      'kolom "Produksi …" = porsi yang harus dibuat (termasuk isi paket). Jangan diubah manual.')
+    .setFontColor('#868e96');
+  recap.getRange(RECAP_HEAD_ROW, 1, 1, batchHeads.length).setValues([batchHeads]).setFontWeight('bold').setBackground(HEADER_BG);
+  recap.getRange(RECAP_HEAD_ROW, slotStart, 1, slotHeads.length).setValues([slotHeads]).setFontWeight('bold').setBackground(HEADER_BG);
+  if (batchRows.length) {
+    recap.getRange(RECAP_HEAD_ROW + 1, 1, batchRows.length, batchHeads.length).setValues(batchRows);
+    recap.getRange(RECAP_HEAD_ROW + 1, 4, batchRows.length, 1).setNumberFormat('"Rp"#,##0');
+  }
+  if (slotRows.length) {
+    recap.getRange(RECAP_HEAD_ROW + 1, slotStart, slotRows.length, slotHeads.length).setValues(slotRows);
+  }
+  recap.setFrozenRows(RECAP_HEAD_ROW);
   recap.setColumnWidth(1, 160);
   recap.setColumnWidths(2, 3, 130);
   recap.setColumnWidth(slotStart, 220);
@@ -651,11 +807,21 @@ function nextOrderId_(props, now) {
   return 'ORD-' + day + '-' + String(seq).padStart(3, '0');
 }
 
+/** Subfolder per tanggal untuk Google Doc detail pesanan. */
 function getDayFolder_(props, now) {
   const root = DriveApp.getFolderById(requireProp_(props, 'FOLDER_ID'));
-  const name = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
-  const existing = root.getFoldersByName(name);
-  return existing.hasNext() ? existing.next() : root.createFolder(name);
+  return childFolder_(root, Utilities.formatDate(now, TZ, 'yyyy-MM-dd'));
+}
+
+/** Subfolder "Bukti Pembayaran" untuk semua screenshot bukti bayar. */
+function getProofFolder_(props) {
+  return childFolder_(DriveApp.getFolderById(requireProp_(props, 'FOLDER_ID')), PROOF_FOLDER_NAME);
+}
+
+/** Subfolder bernama `name` di dalam `parent`; dibuat bila belum ada. */
+function childFolder_(parent, name) {
+  const existing = parent.getFoldersByName(name);
+  return existing.hasNext() ? existing.next() : parent.createFolder(name);
 }
 
 function createDetailDoc_(orderId, order, now, folder, batch, proofUrl) {
@@ -717,7 +883,7 @@ function appendOrderRow_(ss, orderId, order, now, batch, proofUrl) {
     PAY_STATUSES[0],
     ORDER_STATUSES[0],
     safe_(order.customer.name),
-    '=HYPERLINK("https://wa.me/' + phone + '","' + phone + '")',
+    asText(phone), // nomor WA sebagai teks biasa (tanpa rumus)
     safe_(order.typeLabel),
     asText(order.slot),
     safe_(order.address),
@@ -727,18 +893,14 @@ function appendOrderRow_(ss, orderId, order, now, batch, proofUrl) {
     order.subtotal,
     order.deliveryFee,
     order.total,
-    proofUrl ? '=HYPERLINK("' + proofUrl + '","Lihat bukti")' : 'Tidak ada',
+    proofUrl ? 'Lihat bukti' : 'Tidak ada', // tautan dipasang setelah baris ditambahkan
     safe_(order.notes),
     '', // Detail: diisi tautan setelah dokumen selesai dibuat.
   ];
-  // Porsi per menu; paket dipecah ke menu isinya.
-  const addQty = function (name, qty) {
-    const c = header.indexOf(name, HEADERS.length);
-    if (c !== -1) values[c] = (Number(values[c]) || 0) + Number(qty);
-  };
+  // Jumlah per menu apa adanya (paket tercatat di kolom paket; porsi isinya dihitung saat rekap/kuota).
   order.items.forEach(function (item) {
-    if (Array.isArray(item.parts)) item.parts.forEach(function (p) { addQty(p.name, p.qty); });
-    else addQty(item.name, item.qty);
+    const c = header.indexOf(item.name, HEADERS.length);
+    if (c !== -1) values[c] = (Number(values[c]) || 0) + Number(item.qty);
   });
   for (let c = 0; c < values.length; c++) {
     if (values[c] === undefined) values[c] = '';
@@ -755,6 +917,15 @@ function appendOrderRow_(ss, orderId, order, now, batch, proofUrl) {
   );
   sheet.getRange(row, COL.ITEMS).setWrap(true);
   sheet.getRange(row, COL.SUBTOTAL, 1, 3).setNumberFormat('"Rp"#,##0');
+  if (proofUrl) setLink_(sheet.getRange(row, COL.PROOF), 'Lihat bukti', proofUrl);
+}
+
+/**
+ * Teks yang bisa diklik. Dipasang sebagai teks bertaut (bukan rumus HYPERLINK), karena rumus yang
+ * ditulis skrip bisa gagal (#ERROR!) bila bahasa spreadsheet memakai pemisah ";".
+ */
+function setLink_(range, text, url) {
+  range.setRichTextValue(SpreadsheetApp.newRichTextValue().setText(text).setLinkUrl(url).build());
 }
 
 /** Isi kolom Detail. Baris dicari lewat ID karena urutan baris bisa berubah saat sheet disortir. */
@@ -762,7 +933,7 @@ function setDetailLink_(ss, orderId, url) {
   const sheet = ss.getSheetByName(SHEET_NAME);
   const cell = sheet.getRange(2, COL.ID, sheet.getLastRow() - 1, 1)
     .createTextFinder(orderId).matchEntireCell(true).findNext();
-  if (cell) sheet.getRange(cell.getRow(), COL.DETAIL).setFormula('=HYPERLINK("' + url + '","Buka")');
+  if (cell) setLink_(sheet.getRange(cell.getRow(), COL.DETAIL), 'Buka', url);
 }
 
 /* ---------- Utilitas ---------- */
@@ -837,6 +1008,9 @@ function withLock_(fn) {
   try {
     return fn();
   } finally {
+    // Simpan semua perubahan dulu, supaya permintaan berikutnya tidak membaca data lama
+    // (mis. menambah kolom menu yang sama dua kali).
+    SpreadsheetApp.flush();
     lock.releaseLock();
   }
 }
